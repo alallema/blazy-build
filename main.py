@@ -27,6 +27,9 @@ import meilisearch
 app = FastAPI()
 vectorstore: Optional[VectorStore] = None
 
+logger = logging.getLogger("uvicorn")
+logging.basicConfig(level=logging.INFO)
+
 # Set CORS middleware to allow requests from the frontend
 origins = [
     "*"
@@ -49,18 +52,12 @@ def health():
 # Build the vector space at startup if it doesn't exist
 @app.on_event("startup")
 async def startup_event():
-    logging.info("loading vectorstore")
-    # if not Path("vectorstore.pkl").exists():
-    #ingest_docs("meilisearch", "documentation")
-    # with open("vectorstore.pkl", "rb") as f:
-    #     global vectorstore
-    #     vectorstore = pickle.load(f)
+    ingest_docs("meilisearch", "documentation")
     global vectorstore
-    client = meilisearch.Client('http://127.0.0.1:7700')
-    index = client.index('langchain_demo')
+    client = meilisearch.Client('http://127.0.0.1:7700', 'masterKey')
     embeddings = OpenAIEmbeddings()
-    vectorstore = Meilisearch(index, embeddings.embed_query, "text")
-    logging.info("vectorstore loaded")
+    vectorstore = Meilisearch(embeddings, client)
+    logger.info("vectorstore loaded")
 
 
 @app.get("/chat")
@@ -94,10 +91,10 @@ async def websocket_endpoint(websocket: WebSocket):
             end_resp = ChatResponse(sender="bot", message="", type="end")
             await websocket.send_json(end_resp.dict())
         except WebSocketDisconnect:
-            logging.info("websocket disconnect")
+            logger.info("websocket disconnect")
             break
         except Exception as e:
-            logging.error(e)
+            logger.error(e)
             resp = ChatResponse(
                 sender="bot",
                 message="Uh oh, something went wrong. Try again.",
@@ -112,5 +109,5 @@ def qa(question: str):
     try:
         return qa_chain({"question": question}, return_only_outputs=True)
     except Exception as e:
-        logging.error(e)
+        logger.error(e)
         return e

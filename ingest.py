@@ -21,13 +21,13 @@ def ingest_docs(org_name: str, repo_name: str):
         for chunk in splitter.split_text(source.page_content):
             source_chunks.append(Document(page_content=chunk, metadata=source.metadata))
 
-    client = meilisearch.Client('http://127.0.0.1:7700')
-    index = client.index('langchain_demo')
+    client = meilisearch.Client('http://127.0.0.1:7700', 'masterKey')
+    index = client.index('langchain-demo')
     index.delete() # delete the index if it already exists to start from fresh data
     embeddings = OpenAIEmbeddings()
 
     print("Compute and add documents embeddings to Meilisearch vectorstore...")
-    vectorstore = Meilisearch(index, embeddings.embed_query, "text")
+    vectorstore = Meilisearch(embedding=embeddings, client=client)
     vectorstore.add_documents(source_chunks)
     print("Done.")
 
